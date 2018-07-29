@@ -125,7 +125,10 @@ namespace ConsoleApp
 
             debug("writing json");
             if (!File.Exists(next.gatewayTimestamp.Year + "_" + next.gatewayTimestamp.Month + "_" + next.gatewayTimestamp.Day + "_EDDN Dump.json"))
+            {
                 File.WriteAllText(next.gatewayTimestamp.Year + "_" + next.gatewayTimestamp.Month + "_" + next.gatewayTimestamp.Day + "_EDDN Dump.json", "");
+                num = 0;
+            }
             File.AppendAllLines(next.gatewayTimestamp.Year + "_" + next.gatewayTimestamp.Month + "_" + next.gatewayTimestamp.Day + "_EDDN Dump.json", new string[] { next.raw });
             debug("printing " + ++num + " | " + next.gatewayTimestamp.ToLongTimeString() + " | " + addspaces(next.uploaderID) + " | " + addspaces(next.message_data.star.name, 28) + " [ " + next.message_data.star.x + ", " + next.message_data.star.y + ", " + next.message_data.star.z + " ]");
             Console.WriteLine(num + " | " + next.gatewayTimestamp.ToLongTimeString() + " | " + addspaces(next.uploaderID) + " | " + addspaces(next.message_data.star.name, 28) + " [ " + next.message_data.star.x + ", " + next.message_data.star.y + ", " + next.message_data.star.z + " ]");
