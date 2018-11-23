@@ -6,6 +6,8 @@ using Ionic.Zlib;
 using Newtonsoft.Json.Linq;
 using System.Globalization;
 using System.IO;
+using System.Net;
+using MySql.Data;
 
 namespace ConsoleApp
 {
@@ -38,8 +40,14 @@ namespace ConsoleApp
         }
         static ulong num = 0;
         static bool debugbool = false;
+        static int major = 1;
+        static int minor = 0;
+        static DBConnection db = DBConnection.Instance();
+        static string dbfileloc = "";
         static void Main(string[] args)
         {
+            if (!decodeargs(args))
+                return;
             var utf8 = new UTF8Encoding();
             try
             {
@@ -63,6 +71,59 @@ namespace ConsoleApp
             {
                 Console.WriteLine(e.Message);
                 Console.Read();
+            }
+        }
+
+        private static bool decodeargs(string[] args)
+        {
+            if (File.Exists("dbfile"))
+                dbfileloc = "dbfile";
+            else
+                dbfileloc = "";
+            try
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    switch(args[i].Substring(1,args[i].Length-2))
+                    {
+                        case "debug":
+                            debugbool = true;
+                            break;
+                        case "usedb":
+                            if(i+1 != args.Length)//
+                            {
+                                if (File.Exists(args[i + 1]))
+                                    dbfileloc = args[i + 1];
+                            }
+                            break;
+                    }
+                }
+                if (!(dbfileloc == ""))
+                {
+                    string[] temp = File.ReadAllLines(dbfileloc);
+                    if (temp.Length != 4)
+                    {
+                        debug("Unable to load database file. Please check that formatting is correct.", messagestate.log);
+                        return true;
+                    }
+                    db.ip = temp[0];
+                    db.DatabaseName = temp[1];
+                    db.username = temp[2];
+                    db.password = temp[3];
+                    if (db.IsConnect())
+                        return true;
+                    else
+                    {
+                        debug("Unable to connect to database. Please check that database is on and formatting is correct.", messagestate.log);
+                        return true;
+                    }
+                }
+                return true;
+            }
+            catch(Exception e)
+            {
+                debug(e);
+                return false;
             }
         }
 
@@ -150,16 +211,59 @@ namespace ConsoleApp
             }
             return ret;
         }
+        enum messagestate { debug, log, error}
         /// <summary>
         /// Needed to clean up debug messages. Processes messages to different locations
         /// </summary>
         /// <param name="message">message to process</param>
-        static void debug(string message)
+        /// <param name="state">which log to write to</param>
+        static void debug(string message, messagestate state = messagestate.debug)
         {
-            if (!debugbool)
-                return;
-            //Console.WriteLine(message);
-            File.AppendAllText("debug.log", DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToShortTimeString() + " | " + message + Environment.NewLine);
+            switch (state)
+            {
+                case messagestate.debug:
+                    if (!debugbool)
+                        return;
+                    Console.WriteLine(message);
+                    File.AppendAllText("debug_" + DateTime.Now.DayOfYear.ToString() + DateTime.Now.Year.ToString() + ".log", DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToShortTimeString() + " | " + message + Environment.NewLine);
+                    break;
+                case messagestate.error:
+                    Console.WriteLine(message);
+                    File.AppendAllText("crashreport_" + DateTime.Now.DayOfYear.ToString() + DateTime.Now.Year.ToString() + ".log", DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToShortTimeString() + " | " + message + Environment.NewLine);
+                    break;
+                case messagestate.log:
+                    Console.WriteLine(message);
+                    File.AppendAllText("log_" + DateTime.Now.DayOfYear.ToString() + DateTime.Now.Year.ToString() + ".log", DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToShortTimeString() + " | " + message + Environment.NewLine);
+                    break;
+            }
+        }
+        /// <summary>
+        /// Needed to clean up debug messages. Processes messages to different locations
+        /// </summary>
+        /// <param name="e">Special exception accepting log</param>
+        /// <param name="state">which log to write to</param>
+        static void debug(Exception e, messagestate state = messagestate.error)
+        {
+            switch (state)
+            {
+                case messagestate.debug:
+                    if (!debugbool)
+                        return;
+                    Console.WriteLine(e.Message);
+                    File.AppendAllText("debug_" + DateTime.Now.DayOfYear.ToString() + DateTime.Now.Year.ToString() + ".log", DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToShortTimeString() + " | " + e.Message + Environment.NewLine);
+                    break;
+                case messagestate.error:
+                    Console.WriteLine("Critical Crash. Reach out to RapidfireCRH with the crash report file. " + e.Message);
+                    File.AppendAllText("crashreport_" + DateTime.Now.DayOfYear.ToString() + DateTime.Now.Year.ToString() + ".log", DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToShortTimeString() + " | CRASH REPORT" + Environment.NewLine +
+                        "EDDN Listener v" + 
+                        e.Message + Environment.NewLine +
+                        e.TargetSite + Environment.NewLine +
+                        e.StackTrace + Environment.NewLine);
+                    break;
+                case messagestate.log:
+                    File.AppendAllText("log_" + DateTime.Now.DayOfYear.ToString() + DateTime.Now.Year.ToString() + ".log", DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToShortTimeString() + " | " + e.Message + Environment.NewLine);
+                    break;
+            }
         }
     }
 }
